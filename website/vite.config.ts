@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  cacheDir: "/tmp/planets-vite-cache",
   server: {
     host: '0.0.0.0',
     allowedHosts: true,

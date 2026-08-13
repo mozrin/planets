@@ -8,8 +8,10 @@ services:
       dockerfile: docker/server/server.Dockerfile
       target: production
     restart: unless-stopped
+    environment:
+      DATA_DIRECTORY: /app/data
     volumes:
-      - server_data:/app/server/data
+      - server_data:/app/data
     networks:
       - appnet
 
