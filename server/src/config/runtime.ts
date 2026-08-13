@@ -7,4 +7,6 @@ export const runtime = {
   backupDirectory: process.env.BACKUP_DIRECTORY ?? join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "backups"),
   sessionDurationMilliseconds: 7 * 24 * 60 * 60 * 1000,
   planetSyncIntervalMilliseconds: 24 * 60 * 60 * 1000,
+  authAttemptLimit: 10,
+  authAttemptWindowMilliseconds: 15 * 60 * 1000,
 };
