@@ -1,6 +1,7 @@
 import { database } from "./database.ts";
 
-export const initialiseDatabase = () => database.exec(`
+const migrations = [
+  `
   CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT NOT NULL, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE, expires_at INTEGER NOT NULL);
   CREATE INDEX IF NOT EXISTS sessions_expires_at ON sessions(expires_at);
@@ -8,4 +9,15 @@ export const initialiseDatabase = () => database.exec(`
   CREATE INDEX IF NOT EXISTS planets_host_star ON planets(host_star);
   CREATE INDEX IF NOT EXISTS planets_discovery_method ON planets(discovery_method);
   CREATE TABLE IF NOT EXISTS sync_status (dataset TEXT PRIMARY KEY, completed_at INTEGER, record_count INTEGER NOT NULL DEFAULT 0, source_url TEXT NOT NULL, last_error TEXT);
-`);
+`,
+];
+
+export function initialiseDatabase() {
+  database.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);");
+  migrations.forEach((migration, index) => {
+    const version = index + 1;
+    if (database.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(version)) return;
+    database.exec("BEGIN IMMEDIATE;");
+    try { database.exec(migration); database.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(version); database.exec("COMMIT;"); } catch (error) { database.exec("ROLLBACK;"); throw error; }
+  });
+}
