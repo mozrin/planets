@@ -16,6 +16,7 @@ const migrations = [
   CREATE INDEX IF NOT EXISTS planets_discovery_year ON planets(discovery_year);
   CREATE INDEX IF NOT EXISTS planets_equilibrium_temperature ON planets(equilibrium_temperature_kelvin);
 `,
+  `CREATE TABLE IF NOT EXISTS sync_runs (id INTEGER PRIMARY KEY, dataset TEXT NOT NULL, retrieved_at TEXT NOT NULL, record_count INTEGER NOT NULL, source_url TEXT NOT NULL, field_definitions TEXT NOT NULL);`,
 ];
 
 export function initialiseDatabase() {
