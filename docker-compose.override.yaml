@@ -10,7 +10,7 @@ services:
       target: development
     command: npm run dev
     volumes:
-      - ./server:/app
+      - ./server:/app/server
       - server_node_modules:/app/node_modules
       - server_data:/app/server/data
     networks:
