@@ -1,8 +1,9 @@
 FROM node:24-alpine AS dependencies
 WORKDIR /app
 COPY package.json ./package.json
+COPY package-lock.json ./package-lock.json
 COPY website/package.json ./website/package.json
-RUN npm install --workspace website --include-workspace-root
+RUN npm ci --workspace website --include-workspace-root
 
 FROM dependencies AS development
 WORKDIR /app
