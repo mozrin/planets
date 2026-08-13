@@ -14,6 +14,8 @@ import { sendJson, sendJsonError } from "./http/json-response.ts";
 import { readJsonBody } from "./http/read-json-body.ts";
 import { createRouter } from "./http/router.ts";
 import type { RouteContext } from "./http/router.ts";
+import { readiness } from "./observability/health.ts";
+import { log, logError } from "./observability/logger.ts";
 
 initialiseDatabase();
 
@@ -32,6 +34,11 @@ function enforceSameOrigin(request: RouteContext["request"]) {
 }
 
 const router = createRouter([
+  { method: "GET", pathname: "/api/health/live", handle: ({ response }) => sendJson(response, 200, { status: "ok" }) },
+  { method: "GET", pathname: "/api/health/ready", handle: ({ response }) => {
+    const status = readiness(planetSyncStatus(database) as { completed_at: number | null; record_count: number; last_error: string | null }, runtime.planetSyncIntervalMilliseconds * 2);
+    sendJson(response, status.ready ? 200 : 503, status);
+  } },
   { method: "GET", pathname: "/api/health", handle: ({ response }) => sendJson(response, 200, { status: "ok", planetSync: planetSyncStatus(database) }) },
   { method: "GET", pathname: "/api/auth/me", handle: ({ request, response }) => sendJson(response, 200, { user: sessionUser(database, request) }) },
   { method: "GET", pathname: "/api/planets", handle: ({ request, response, url }) => {
@@ -56,7 +63,7 @@ const router = createRouter([
     } catch (error) {
       if (error instanceof AuthenticationError && error.status !== 403) recordFailedAttempt(key, runtime.authAttemptWindowMilliseconds);
       if (error instanceof Error && error.message.startsWith("Too many")) return sendJsonError(response, 429, error.message);
-      if (error instanceof AuthenticationError) console.warn(`Authentication failure: status=${error.status}`);
+      if (error instanceof AuthenticationError) log("auth.failure", { status: error.status });
       if (error instanceof AuthenticationError) return sendJsonError(response, error.status, error.message);
       sendJsonError(response, 400, error instanceof Error ? error.message : "Could not process that request.");
     }
@@ -64,21 +71,27 @@ const router = createRouter([
 ]);
 
 const server = createServer(async (request, response) => {
-  if (!(await router(request, response))) sendJsonError(response, 404, "Not found");
+  try {
+    if (!(await router(request, response))) sendJsonError(response, 404, "Not found");
+    log("http.request", { method: request.method, path: request.url?.split("?")[0] ?? "/", status: response.statusCode });
+  } catch (error) {
+    logError("http.failure", error, { method: request.method, path: request.url?.split("?")[0] ?? "/" });
+    if (!response.headersSent) sendJsonError(response, 500, "Internal server error.");
+  }
 });
 
 function refreshCatalogue() {
-  return synchronisePlanetsIfStale(database, runtime.planetSyncIntervalMilliseconds).catch((error) => {
-    console.error(`Planet sync failed: ${error instanceof Error ? error.message : "Unknown planet sync error."}`);
-  });
+  return synchronisePlanetsIfStale(database, runtime.planetSyncIntervalMilliseconds).then((count) => {
+    if (count) log("catalogue.sync.completed", { records: count });
+  }).catch((error) => logError("catalogue.sync.failed", error));
 }
 
 export function startApplication() {
   server.listen(runtime.port, "0.0.0.0", () => {
-    console.log(`Server listening on ${runtime.port}`);
-    console.log(`Database backup written to ${createDatabaseBackup(runtime.backupDirectory)}.`);
+    log("server.started", { port: runtime.port });
+    log("database.backup.completed", { path: createDatabaseBackup(runtime.backupDirectory) });
     void refreshCatalogue();
   });
   setInterval(() => void refreshCatalogue(), runtime.planetSyncIntervalMilliseconds).unref();
-  setInterval(() => console.log(`Database backup written to ${createDatabaseBackup(runtime.backupDirectory)}.`), runtime.planetSyncIntervalMilliseconds).unref();
+  setInterval(() => log("database.backup.completed", { path: createDatabaseBackup(runtime.backupDirectory) }), runtime.planetSyncIntervalMilliseconds).unref();
 }
