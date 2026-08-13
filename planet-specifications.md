@@ -1,5 +1,7 @@
 # Planet rendering specifications
 
+This handoff follows the [scientific visualization contract](scientific-visualization-contract.md). Every output must carry one of that contract's evidence-class labels and a completed visual record.
+
 ## Purpose
 
 The local SQLite catalogue contains a daily snapshot of NASA Exoplanet Archive's Planetary Systems Composite Parameters (`PSCompPars`) table. Use these fields to create a **scientific illustration** of an exoplanet beside Earth. It is not an observed image and must never be presented as one.
