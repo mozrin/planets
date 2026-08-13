@@ -9,6 +9,6 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: ["mozrin-planets.mozrin.com"],
     hmr: { clientPort: 443 },
-    proxy: { '/api': 'http://server:3000' }
+    proxy: { '/api': process.env.VITE_API_PROXY_TARGET ?? 'http://server:3000' }
   }
 });

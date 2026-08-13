@@ -8,7 +8,7 @@
     "dev:website": "npm --workspace website run dev",
     "build": "npm --workspace server run build && npm --workspace website run build",
     "typecheck": "npm --workspace server run typecheck && npm --workspace website run typecheck",
-    "test": "npm --workspace server run test",
+    "test": "npm --workspace server run test && npm --workspace website run test",
     "verify:conventions": "node scripts/verify-conventions.ts"
   },
   "engines": { "node": ">=24" }
