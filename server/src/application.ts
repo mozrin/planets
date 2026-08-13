@@ -4,6 +4,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { runtime } from "./config/runtime.ts";
 import { database } from "./database/database.ts";
 import { initialiseDatabase } from "./database/schema.ts";
+import { sendJson, sendJsonError } from "./http/json-response.ts";
+import { readJsonBody } from "./http/read-json-body.ts";
+import { createRouter } from "./http/router.ts";
 
 const port = runtime.port;
 type User = { email: string; name: string };
@@ -143,30 +146,6 @@ const synchronisePlanetsIfStale = async () => {
     await synchronisePlanets();
 };
 
-const json = (response: ServerResponse, status: number, body: unknown) => {
-  response.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-  });
-  response.end(JSON.stringify(body));
-};
-
-const readBody = (request: IncomingMessage) =>
-  new Promise<AuthBody>((resolve, reject) => {
-    let body = "";
-    request.on("data", (chunk: Buffer) => {
-      body += chunk;
-      if (body.length > 20_000) reject(new Error("Request body is too large."));
-    });
-    request.on("end", () => {
-      try {
-        resolve(body ? (JSON.parse(body) as AuthBody) : {});
-      } catch {
-        reject(new Error("Invalid JSON."));
-      }
-    });
-    request.on("error", reject);
-  });
-
 const normalizeEmail = (value: unknown) =>
   String(value ?? "")
     .trim()
@@ -204,7 +183,7 @@ const sessionUser = (request: IncomingMessage): User | null => {
 
 const sendUser = (response: ServerResponse, user: User, sessionId: string) => {
   response.setHeader("set-cookie", sessionCookie(sessionId));
-  json(response, 201, { user });
+  sendJson(response, 201, { user });
 };
 
 const planetSorts = {
@@ -253,19 +232,17 @@ const planetPage = (url: URL) => {
   };
 };
 
-const server = createServer(
-  async (request: IncomingMessage, response: ServerResponse) => {
-    const url = new URL(
-      request.url ?? "/",
-      `http://${request.headers.host ?? "localhost"}`,
-    );
-    if (request.method === "GET" && url.pathname === "/api/health") {
+const router = createRouter([
+  {
+    method: "GET",
+    pathname: "/api/health",
+    handle: ({ response }) => {
       const sync = database
         .prepare(
           `SELECT completed_at, record_count, last_error FROM sync_status WHERE dataset = 'nasa-pscomppars'`,
         )
         .get();
-      return json(response, 200, {
+      sendJson(response, 200, {
         status: "ok",
         planetSync: sync ?? {
           completed_at: null,
@@ -273,56 +250,55 @@ const server = createServer(
           last_error: null,
         },
       });
-    }
-    if (request.method === "GET" && url.pathname === "/api/auth/me")
-      return json(response, 200, { user: sessionUser(request) });
-    if (request.method === "GET" && url.pathname === "/api/planets") {
+    },
+  },
+  {
+    method: "GET",
+    pathname: "/api/auth/me",
+    handle: ({ request, response }) => sendJson(response, 200, { user: sessionUser(request) }),
+  },
+  {
+    method: "GET",
+    pathname: "/api/planets",
+    handle: ({ request, response, url }) => {
       if (!sessionUser(request))
-        return json(response, 401, {
-          error: "Sign in to access The Planetary Atlas.",
-        });
-      return json(response, 200, planetPage(url));
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+        return sendJsonError(response, 401, "Sign in to access The Planetary Atlas.");
+      sendJson(response, 200, planetPage(url));
+    },
+  },
+  {
+    method: "POST",
+    pathname: "/api/auth/logout",
+    handle: ({ request, response }) => {
       const sessionId = requestCookies(request).session;
       if (sessionId)
         database.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
       response.setHeader("set-cookie", sessionCookie("", 0));
-      return json(response, 200, { ok: true });
-    }
-
-    if (
-      request.method === "POST" &&
-      (url.pathname === "/api/auth/register" ||
-        url.pathname === "/api/auth/login")
-    ) {
+      sendJson(response, 200, { ok: true });
+    },
+  },
+  ...["/api/auth/register", "/api/auth/login"].map((pathname) => ({
+    method: "POST",
+    pathname,
+    handle: async ({ request, response }: { request: IncomingMessage; response: ServerResponse }) => {
       try {
-        const body = await readBody(request);
+        const body = await readJsonBody<AuthBody>(request);
         const email = normalizeEmail(body.email);
         const password = String(body.password ?? "");
         if (!validEmail(email) || password.length < 8)
-          return json(response, 400, {
-            error:
-              "Enter a valid email and a password of at least 8 characters.",
-          });
+          return sendJsonError(response, 400, "Enter a valid email and a password of at least 8 characters.");
 
         let user: User;
-        if (url.pathname.endsWith("/register")) {
+        if (pathname.endsWith("/register")) {
           const name = String(body.name ?? "").trim();
           if (name.length < 2 || name.length > 80)
-            return json(response, 400, {
-              error: "Enter your name (2–80 characters).",
-            });
+            return sendJsonError(response, 400, "Enter your name (2–80 characters).");
           if (
             database
               .prepare("SELECT email FROM users WHERE email = ?")
               .get(email)
           )
-            return json(response, 409, {
-              error:
-                "An account already exists for that email. Please sign in.",
-            });
+            return sendJsonError(response, 409, "An account already exists for that email. Please sign in.");
           const salt = randomBytes(16).toString("hex");
           database
             .prepare(
@@ -339,9 +315,7 @@ const server = createServer(
             | (User & { password_hash: string; password_salt: string })
             | undefined;
           if (!record)
-            return json(response, 401, {
-              error: "Email or password is incorrect.",
-            });
+            return sendJsonError(response, 401, "Email or password is incorrect.");
           const expected = Buffer.from(record.password_hash, "hex");
           const actual = Buffer.from(
             passwordHash(password, record.password_salt),
@@ -351,9 +325,7 @@ const server = createServer(
             expected.length !== actual.length ||
             !timingSafeEqual(expected, actual)
           )
-            return json(response, 401, {
-              error: "Email or password is incorrect.",
-            });
+            return sendJsonError(response, 401, "Email or password is incorrect.");
           user = { email: record.email, name: record.name };
         }
 
@@ -368,18 +340,17 @@ const server = createServer(
           .run(sessionId, user.email, Date.now() + runtime.sessionDurationMilliseconds);
         return sendUser(response, user, sessionId);
       } catch (error) {
-        return json(response, 400, {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Could not process that request.",
-        });
+        return sendJsonError(response, 400, error instanceof Error ? error.message : "Could not process that request.");
       }
-    }
+    },
+  })),
+]);
 
-    return json(response, 404, { error: "Not found" });
-  },
-);
+const server = createServer(async (request, response) => {
+  if (!(await router(request, response))) {
+    sendJsonError(response, 404, "Not found");
+  }
+});
 
 export const startApplication = () => {
   server.listen(port, "0.0.0.0", () => {
