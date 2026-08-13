@@ -1,6 +1,6 @@
-# Mozrin's Planet Dashboard
+# The Planetary Atlas
 
-Node 24 monorepo for the API server and React 19 website.
+A Node 24 monorepo for a scientist-first exoplanet research workspace.
 
 ## Layout
 
@@ -12,7 +12,7 @@ Node 24 monorepo for the API server and React 19 website.
 
 ## Production deployment
 
-1. Copy `.env.example` to `.env` and set `CLOUDFLARED_TUNNEL_TOKEN`.
+1. Set `CLOUDFLARED_TUNNEL_TOKEN` in your deployment environment.
 2. In Cloudflare Zero Trust, configure the `planets.mozrin.com` tunnel ingress rules: `^/api` to `http://planets_server:3000`, then `^/` to `http://planet_website:3000`.
 3. Run `docker compose up -d --build`.
 
@@ -29,6 +29,21 @@ docker compose up --build
 
 Visit `https://mozrin-planets.mozrin.com`; the API is at `https://mozrin-planets.mozrin.com/api/health`. The local Cloudflared tunnel requires its local-development token in `.env` and forwards to Traefik.
 
-## GitHub
+## Development conventions
 
-When you are ready for the first remote push, initialize this directory as a Git repository and add `git@github.com:mozrin/planets_dashboard.git` (or the HTTPS equivalent).
+- Run dependency commands from the repository root. This is an npm workspace monorepo, so `node_modules` belongs only at the root.
+- Application source is TypeScript and TSX only; do not add JavaScript or JSX sources.
+- Styling uses Tailwind CSS 4 utility classes only. `website/src/styles.css` is limited to the required Tailwind import.
+- Local development is available at `https://mozrin-planets.mozrin.com`, not `localhost`.
+
+Run the standard checks from the root:
+
+```sh
+npm run verify:conventions
+npm run typecheck
+npm run build
+```
+
+## Collaboration
+
+Pull requests are for approved collaborators only. Read [CONTRIBUTING.md](CONTRIBUTING.md) before beginning work.
