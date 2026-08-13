@@ -1,18 +1,11 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { DatabaseSync } from "node:sqlite";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runtime } from "./config/runtime.ts";
+import { database } from "./database/database.ts";
+import { initialiseDatabase } from "./database/schema.ts";
 
-const port = Number(process.env.PORT ?? 3000);
-const dataDirectory =
-  process.env.DATA_DIRECTORY ??
-  join(dirname(fileURLToPath(import.meta.url)), "..", "data");
-mkdirSync(dataDirectory, { recursive: true });
-
-const database = new DatabaseSync(join(dataDirectory, "planets.sqlite"));
+const port = runtime.port;
 type User = { email: string; name: string };
 type AuthBody = { name?: unknown; email?: unknown; password?: unknown };
 type NasaPlanet = {
@@ -32,12 +25,13 @@ type NasaPlanet = {
   st_mass: number | null;
   st_lum: number | null;
 };
-const syncIntervalMilliseconds = 24 * 60 * 60 * 1000;
+const syncIntervalMilliseconds = runtime.planetSyncIntervalMilliseconds;
 const nasaFields =
   "pl_name,hostname,pl_rade,pl_bmasse,pl_orbper,pl_orbsmax,pl_eqt,pl_insol,sy_dist,disc_method,disc_year,st_teff,st_rad,st_mass,st_lum";
 const nasaQuery = `select ${nasaFields} from pscomppars`;
 const nasaArchiveUrl = `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=${encodeURIComponent(nasaQuery)}&format=json`;
-database.exec(`
+initialiseDatabase();
+/*
   CREATE TABLE IF NOT EXISTS users (
     email TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -64,7 +58,7 @@ database.exec(`
     dataset TEXT PRIMARY KEY, completed_at INTEGER, record_count INTEGER NOT NULL DEFAULT 0,
     source_url TEXT NOT NULL, last_error TEXT
   );
-`);
+*/
 
 let syncingPlanets = false;
 const numberOrNull = (value: number | null) =>
@@ -371,7 +365,7 @@ const server = createServer(
           .prepare(
             "INSERT INTO sessions (id, user_email, expires_at) VALUES (?, ?, ?)",
           )
-          .run(sessionId, user.email, Date.now() + 7 * 24 * 60 * 60 * 1000);
+          .run(sessionId, user.email, Date.now() + runtime.sessionDurationMilliseconds);
         return sendUser(response, user, sessionId);
       } catch (error) {
         return json(response, 400, {
@@ -387,11 +381,13 @@ const server = createServer(
   },
 );
 
-server.listen(port, "0.0.0.0", () => {
-  console.log(`Server listening on ${port}`);
-  void synchronisePlanetsIfStale();
-});
-setInterval(
-  () => void synchronisePlanetsIfStale(),
-  syncIntervalMilliseconds,
-).unref();
+export const startApplication = () => {
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`Server listening on ${port}`);
+    void synchronisePlanetsIfStale();
+  });
+  setInterval(
+    () => void synchronisePlanetsIfStale(),
+    syncIntervalMilliseconds,
+  ).unref();
+};
