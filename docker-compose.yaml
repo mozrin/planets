@@ -1,0 +1,43 @@
+name: planets
+
+services:
+  server:
+    container_name: planets_server
+    build:
+      context: .
+      dockerfile: docker/server/server.Dockerfile
+      target: production
+    restart: unless-stopped
+    networks:
+      - appnet
+
+  website:
+    container_name: planets_website
+    build:
+      context: .
+      dockerfile: docker/website/website.Dockerfile
+      target: production
+    restart: unless-stopped
+    networks:
+      - appnet
+
+  tunnel:
+    container_name: planets_tunnel
+    build:
+      context: .
+      dockerfile: docker/cloudflared/cloudflared.Dockerfile
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TUNNEL_TOKEN:-}
+    depends_on:
+      - website
+      - server
+    restart: unless-stopped
+    networks:
+      - appnet
+
+# Deliberately no `ports:` declarations: traffic stays on Docker networks.
+networks:
+  appnet:
+    # Private to this Compose project. Do not set `internal: true`: the tunnel
+    # needs outbound connectivity to Cloudflare.

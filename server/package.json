@@ -1,0 +1,11 @@
+{
+  "name": "@planets-dashboard/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "build": "node -e \"console.log('Server requires no build step.')\""
+  },
+  "engines": { "node": ">=24" }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@planets-dashboard/website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "npm run copy:docs",
+    "prebuild": "npm run copy:docs",
+    "copy:docs": "node scripts/copy-docs.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {},
+  "engines": { "node": ">=24" }
+}
