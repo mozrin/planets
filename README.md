@@ -12,7 +12,7 @@ A Node 24 monorepo for a scientist-first exoplanet research workspace.
 
 ## Production deployment
 
-1. Set `CLOUDFLARED_TUNNEL_TOKEN` in your deployment environment.
+1. Copy `.env.example` to `.env` for local development. Set `CLOUDFLARED_TUNNEL_TOKEN` in the production deployment environment; never commit either environment file or a production token.
 2. In Cloudflare Zero Trust, configure the `planets.mozrin.com` tunnel ingress rules: `^/api` to `http://planets_server:3000`, then `^/` to `http://planet_website:3000`.
 3. Run `docker compose up -d --build`.
 
@@ -36,6 +36,12 @@ docker compose up --build
 ```
 
 Visit `https://mozrin-planets.mozrin.com`; the API is at `https://mozrin-planets.mozrin.com/api/health`. The local Cloudflared tunnel requires its local-development token in `.env` and forwards to Traefik.
+
+## Configuration and secrets
+
+The server validates numeric runtime configuration when it starts. The Compose stack refuses to start the tunnel without `CLOUDFLARED_TUNNEL_TOKEN`. Production configuration belongs in the deployment environment, not the repository or Docker image.
+
+`mozrin-planets.mozrin.com` is the only local development host. Vite explicitly permits that host, and Traefik routes the API and website through it. The development Cloudflared token has no production authority, but production tokens are secrets and must be supplied through the deployment environment only.
 
 ## Operational health
 

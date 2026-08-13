@@ -7,7 +7,7 @@ export default defineConfig({
   cacheDir: "/tmp/planets-vite-cache",
   server: {
     host: '0.0.0.0',
-    allowedHosts: true,
+    allowedHosts: ["mozrin-planets.mozrin.com"],
     hmr: { clientPort: 443 },
     proxy: { '/api': 'http://server:3000' }
   }
