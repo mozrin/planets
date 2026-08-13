@@ -105,8 +105,9 @@ function Briefing({ navigate, setNotice }: { navigate: Navigate; setNotice: (mes
 }
 
 function Catalogue({ navigate }: { navigate: Navigate }) {
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<Sort>("name");
+  const initialParameters = new URLSearchParams(window.location.search);
+  const [query, setQuery] = useState(() => initialParameters.get("query") ?? "");
+  const [sort, setSort] = useState<Sort>(() => (initialParameters.get("sort") as Sort) ?? "name");
   const [view, setView] = useState<"cards" | "table">("cards");
   const [records, setRecords] = useState<Planet[]>([]);
   const [total, setTotal] = useState(0);
@@ -114,6 +115,7 @@ function Catalogue({ navigate }: { navigate: Navigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => { const parameters = new URLSearchParams(); if (query) parameters.set("query", query); if (sort !== "name") parameters.set("sort", sort); window.history.replaceState({}, "", `/atlas/catalogue${parameters.size ? `?${parameters}` : ""}`); }, [query, sort]);
   const request = useCallback(async (offset = 0) => {
     const params = new URLSearchParams({ query, sort, limit: "30", offset: String(offset) });
     const response = await fetch(`/api/planets?${params}`);
