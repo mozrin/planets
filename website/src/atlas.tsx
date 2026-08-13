@@ -14,6 +14,7 @@ type Planet = {
   discovery_year: number | null;
   semi_major_axis_au: number | null;
   star_temperature_kelvin: number | null;
+  star_radius_solar: number | null;
   source: string;
   synced_at: string | null;
 };
