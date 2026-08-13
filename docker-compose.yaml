@@ -10,8 +10,10 @@ services:
     restart: unless-stopped
     environment:
       DATA_DIRECTORY: /app/data
+      BACKUP_DIRECTORY: /app/backups
     volumes:
       - server_data:/app/data
+      - server_backups:/app/backups
     networks:
       - appnet
 
@@ -47,3 +49,4 @@ networks:
     # needs outbound connectivity to Cloudflare.
 volumes:
   server_data:
+  server_backups:

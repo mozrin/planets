@@ -6,6 +6,7 @@ import type { AuthBody, User } from "./auth/types.ts";
 import { planetPage, planetSyncStatus } from "./catalogue/repository.ts";
 import { synchronisePlanetsIfStale } from "./catalogue/sync-service.ts";
 import { runtime } from "./config/runtime.ts";
+import { createDatabaseBackup } from "./database/backup.ts";
 import { database } from "./database/database.ts";
 import { initialiseDatabase } from "./database/schema.ts";
 import { sendJson, sendJsonError } from "./http/json-response.ts";
@@ -57,7 +58,9 @@ function refreshCatalogue() {
 export function startApplication() {
   server.listen(runtime.port, "0.0.0.0", () => {
     console.log(`Server listening on ${runtime.port}`);
+    console.log(`Database backup written to ${createDatabaseBackup(runtime.backupDirectory)}.`);
     void refreshCatalogue();
   });
   setInterval(() => void refreshCatalogue(), runtime.planetSyncIntervalMilliseconds).unref();
+  setInterval(() => console.log(`Database backup written to ${createDatabaseBackup(runtime.backupDirectory)}.`), runtime.planetSyncIntervalMilliseconds).unref();
 }
