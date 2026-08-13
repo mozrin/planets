@@ -5,6 +5,8 @@ website/public/docs/
 .DS_Store
 server/data/
 data/
+!docs/data/
+!docs/data/**
 backups/
 
 **/node_modules

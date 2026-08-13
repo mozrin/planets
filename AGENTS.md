@@ -1,5 +1,15 @@
 # Project conventions
 
+## Documentation
+
+- Put repository documentation in the root `docs/` directory. Do not add
+  Markdown documentation beside application code, inside service directories,
+  or at the repository root (except required repository-standard files such as
+  `README.md`, `CONTRIBUTING.md`, `LICENSE`, and `AGENTS.md`).
+- Organize related material beneath a descriptive `docs/` subdirectory and
+  update references when a document moves. Generated website copies are an
+  explicit exception and must be produced from `docs/`, never authored there.
+
 ## Styling
 
 - Use Tailwind CSS 4 utility classes exclusively for all application styling.
