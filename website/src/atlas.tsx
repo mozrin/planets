@@ -15,6 +15,7 @@ type Planet = {
 type Page = { records: Planet[]; total: number; nextOffset: number | null };
 type Sort = "name" | "distance" | "discovery" | "radius" | "temperature";
 type Section = "atlas" | "explore" | "data" | "tools";
+type Navigate = (path: string) => void;
 
 const display = (value: number | null, suffix = "", digits = 1) =>
   value === null ? "—" : `${value.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
@@ -26,16 +27,21 @@ const navItems: { id: Section; label: string }[] = [
   { id: "tools", label: "Tools" },
 ];
 
-export function Atlas({ user, logout }: { user: User; logout: () => void }) {
-  const [section, setSection] = useState<Section>("atlas");
+const sectionForPath = (path: string): Section => path === "/explore" ? "explore" : path === "/data-methods" ? "data" : path === "/tools" ? "tools" : "atlas";
+const pathForSection = (section: Section) => section === "atlas" ? "/atlas" : section === "data" ? "/data-methods" : `/${section}`;
+const profileNameForPath = (path: string) => path.startsWith("/atlas/planet/") ? decodeURIComponent(path.slice("/atlas/planet/".length)) : null;
+
+export function Atlas({ user, logout, path, navigate }: { user: User; logout: () => void; path: string; navigate: Navigate }) {
+  const section = sectionForPath(path);
+  const profileName = profileNameForPath(path);
   const [notice, setNotice] = useState<string | null>(null);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#071018] text-slate-100 selection:bg-cyan-200 selection:text-slate-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(34,211,238,0.12),transparent_24rem),radial-gradient(circle_at_85%_15%,rgba(45,212,191,0.08),transparent_26rem)]" />
-      <Header active={section} setActive={setSection} user={user} logout={logout} />
+      <Header active={section} navigate={navigate} user={user} logout={logout} />
       <div className="relative mx-auto w-full max-w-360 px-4 pb-16 sm:px-8 lg:px-12">
-        {section === "atlas" && <AtlasHome openSection={setSection} setNotice={setNotice} />}
+        {profileName ? <ProfileRoute name={profileName} navigate={navigate} /> : section === "atlas" && <AtlasHome path={path} navigate={navigate} setNotice={setNotice} />}
         {section === "explore" && <ExploreView setNotice={setNotice} />}
         {section === "data" && <DataView setNotice={setNotice} />}
         {section === "tools" && <ToolsView setNotice={setNotice} />}
@@ -45,16 +51,16 @@ export function Atlas({ user, logout }: { user: User; logout: () => void }) {
   );
 }
 
-function Header({ active, setActive, user, logout }: { active: Section; setActive: (section: Section) => void; user: User; logout: () => void }) {
+function Header({ active, navigate, user, logout }: { active: Section; navigate: Navigate; user: User; logout: () => void }) {
   return (
     <header className="relative z-10 border-b border-white/10 bg-[#071018]/90 backdrop-blur">
       <div className="mx-auto flex min-h-18 max-w-360 flex-wrap items-center gap-x-8 gap-y-3 px-4 py-3 sm:px-8 lg:px-12">
-        <button onClick={() => setActive("atlas")} className="flex items-center gap-3 text-left">
+        <button onClick={() => navigate("/atlas")} className="flex items-center gap-3 text-left">
           <span className="grid size-9 place-items-center rounded-full border border-cyan-200/50 bg-cyan-200/10 text-lg text-cyan-100">◌</span>
           <span><span className="block font-mono text-[10px] tracking-[0.24em] text-cyan-100">THE</span><span className="block text-sm font-semibold tracking-[0.16em]">PLANETARY ATLAS</span></span>
         </button>
-        <nav className="order-3 flex w-full gap-1 overflow-x-auto text-sm sm:order-none sm:w-auto">
-          {navItems.map((item) => <button key={item.id} onClick={() => setActive(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 transition ${active === item.id ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/8 hover:text-white"}`}>{item.label}</button>)}
+        <nav aria-label="Workspace navigation" className="order-3 flex w-full gap-1 overflow-x-auto pb-1 text-sm sm:order-none sm:w-auto sm:pb-0">
+          {navItems.map((item) => <button key={item.id} aria-current={active === item.id ? "page" : undefined} onClick={() => navigate(pathForSection(item.id))} className={`whitespace-nowrap rounded-full px-3 py-2 transition ${active === item.id ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/8 hover:text-white"}`}>{item.label}</button>)}
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden text-right sm:block"><span className="block text-xs text-slate-300">{user.name}</span><span className="block font-mono text-[10px] text-slate-500">RESEARCHER</span></span>
@@ -65,8 +71,8 @@ function Header({ active, setActive, user, logout }: { active: Section; setActiv
   );
 }
 
-function AtlasHome({ openSection, setNotice }: { openSection: (section: Section) => void; setNotice: (message: string) => void }) {
-  const [mode, setMode] = useState<"briefing" | "catalogue">("briefing");
+function AtlasHome({ path, navigate, setNotice }: { path: string; navigate: Navigate; setNotice: (message: string) => void }) {
+  const mode = path === "/atlas/catalogue" ? "catalogue" : "briefing";
   return <>
     <section className="grid gap-8 py-10 lg:grid-cols-[1.25fr_.75fr] lg:py-16">
       <div>
@@ -74,8 +80,8 @@ function AtlasHome({ openSection, setNotice }: { openSection: (section: Section)
         <h1 className="mt-5 max-w-3xl text-4xl font-medium leading-[1.05] tracking-tight sm:text-6xl">A calmer way to navigate <em className="font-serif font-normal text-cyan-100">other worlds.</em></h1>
         <p className="mt-6 max-w-xl text-base leading-7 text-slate-300">Start with a question, then move from the catalogue to methods, observations, and the tools that make a result defensible.</p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <button onClick={() => setMode("catalogue")} className="rounded-full bg-cyan-200 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-100">Search the catalogue <span aria-hidden="true">→</span></button>
-          <button onClick={() => openSection("data")} className="rounded-full border border-white/15 px-5 py-3 text-sm text-slate-200 hover:border-cyan-200/60">Understand the data</button>
+          <button onClick={() => navigate("/atlas/catalogue")} className="rounded-full bg-cyan-200 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-100">Search the catalogue <span aria-hidden="true">→</span></button>
+          <button onClick={() => navigate("/data-methods")} className="rounded-full border border-white/15 px-5 py-3 text-sm text-slate-200 hover:border-cyan-200/60">Understand the data</button>
         </div>
       </div>
       <aside className="relative overflow-hidden rounded-3xl border border-cyan-100/20 bg-[#0b1a25] p-6 shadow-2xl shadow-cyan-950/20">
@@ -85,28 +91,43 @@ function AtlasHome({ openSection, setNotice }: { openSection: (section: Section)
         <div className="relative mt-10 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 text-sm"><Metric label="Primary source" value="NASA Archive" /><Metric label="Refresh" value="Daily" /><Metric label="Record type" value="Composite" /><Metric label="Visual status" value="Modelled" /></div>
       </aside>
     </section>
-    <div className="flex gap-5 border-b border-white/10 text-sm"><Tab active={mode === "briefing"} onClick={() => setMode("briefing")}>Research briefing</Tab><Tab active={mode === "catalogue"} onClick={() => setMode("catalogue")}>Catalogue</Tab></div>
-    {mode === "briefing" ? <Briefing openSection={openSection} setNotice={setNotice} /> : <Catalogue />}
+    <div className="flex gap-5 border-b border-white/10 text-sm"><Tab active={mode === "briefing"} onClick={() => navigate("/atlas")}>Research briefing</Tab><Tab active={mode === "catalogue"} onClick={() => navigate("/atlas/catalogue")}>Catalogue</Tab></div>
+    {mode === "briefing" ? <Briefing navigate={navigate} setNotice={setNotice} /> : <Catalogue navigate={navigate} />}
   </>;
 }
 
-function Briefing({ openSection, setNotice }: { openSection: (section: Section) => void; setNotice: (message: string) => void }) {
+function Briefing({ navigate, setNotice }: { navigate: Navigate; setNotice: (message: string) => void }) {
   return <section className="grid gap-5 py-8 lg:grid-cols-12">
-    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 lg:col-span-7"><p className="font-mono text-[10px] tracking-[0.18em] text-cyan-200">A GOOD PLACE TO BEGIN</p><h2 className="mt-4 text-2xl font-medium">One atlas. A clear route to evidence.</h2><p className="mt-3 max-w-xl leading-7 text-slate-400">The catalogue is intentionally separate from the interpretive work. Search a world first; use the provenance, source coverage, and analysis tools only when your question calls for them.</p><div className="mt-7 grid gap-3 sm:grid-cols-3"><FlowCard number="01" title="Find" text="Search planets, stars, methods, and measurements." onClick={() => setNotice("Catalogue search is ready. Choose Catalogue above to begin.")} /><FlowCard number="02" title="Assess" text="Read values alongside their limits and provenance." onClick={() => openSection("data")} /><FlowCard number="03" title="Work" text="Build a query, plot a population, or prepare an export." onClick={() => openSection("tools")} /></div></article>
-    <article className="rounded-2xl border border-white/10 bg-[#101b28] p-6 lg:col-span-5"><div className="flex items-center justify-between"><p className="font-mono text-[10px] tracking-[0.18em] text-cyan-200">RECENTLY ADDED</p><span className="rounded-full bg-cyan-200/10 px-2 py-1 font-mono text-[10px] text-cyan-100">MOCK BRIEFING</span></div><div className="mt-5 space-y-4"><News title="Atmospheres are not appearances" text="How to read a derived visual without mistaking it for a photograph." /><News title="Source-aware comparison" text="Keep composite values and reference-consistent records distinct." /><News title="From discovery to follow-up" text="A lightweight route through TESS, JWST, and archive products." /></div><button onClick={() => openSection("explore")} className="mt-6 text-sm text-cyan-100 hover:text-cyan-200">Open research explorations →</button></article>
+    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 lg:col-span-7"><p className="font-mono text-[10px] tracking-[0.18em] text-cyan-200">A GOOD PLACE TO BEGIN</p><h2 className="mt-4 text-2xl font-medium">One atlas. A clear route to evidence.</h2><p className="mt-3 max-w-xl leading-7 text-slate-400">The catalogue is intentionally separate from the interpretive work. Search a world first; use the provenance, source coverage, and analysis tools only when your question calls for them.</p><div className="mt-7 grid gap-3 sm:grid-cols-3"><FlowCard number="01" title="Find" text="Search planets, stars, methods, and measurements." onClick={() => navigate("/atlas/catalogue")} /><FlowCard number="02" title="Assess" text="Read values alongside their limits and provenance." onClick={() => navigate("/data-methods")} /><FlowCard number="03" title="Work" text="Build a query, plot a population, or prepare an export." onClick={() => navigate("/tools")} /></div></article>
+    <article className="rounded-2xl border border-white/10 bg-[#101b28] p-6 lg:col-span-5"><div className="flex items-center justify-between"><p className="font-mono text-[10px] tracking-[0.18em] text-cyan-200">RECENTLY ADDED</p><span className="rounded-full bg-cyan-200/10 px-2 py-1 font-mono text-[10px] text-cyan-100">MOCK BRIEFING</span></div><div className="mt-5 space-y-4"><News title="Atmospheres are not appearances" text="How to read a derived visual without mistaking it for a photograph." /><News title="Source-aware comparison" text="Keep composite values and reference-consistent records distinct." /><News title="From discovery to follow-up" text="A lightweight route through TESS, JWST, and archive products." /></div><button onClick={() => navigate("/explore")} className="mt-6 text-sm text-cyan-100 hover:text-cyan-200">Open research explorations →</button></article>
   </section>;
 }
 
-function Catalogue() {
+function Catalogue({ navigate }: { navigate: Navigate }) {
   const [query, setQuery] = useState(""); const [sort, setSort] = useState<Sort>("name"); const [view, setView] = useState<"cards" | "table">("cards");
-  const [records, setRecords] = useState<Planet[]>([]); const [total, setTotal] = useState(0); const [nextOffset, setNextOffset] = useState<number | null>(null); const [loading, setLoading] = useState(true); const [selected, setSelected] = useState<Planet | null>(null); const sentinel = useRef<HTMLDivElement>(null);
+  const [records, setRecords] = useState<Planet[]>([]); const [total, setTotal] = useState(0); const [nextOffset, setNextOffset] = useState<number | null>(null); const [loading, setLoading] = useState(true); const sentinel = useRef<HTMLDivElement>(null);
   const request = useCallback(async (offset = 0) => { const params = new URLSearchParams({ query, sort, limit: "30", offset: String(offset) }); const response = await fetch(`/api/planets?${params}`); if (!response.ok) throw new Error("Unable to load catalogue"); return response.json() as Promise<Page>; }, [query, sort]);
   useEffect(() => { const timer = window.setTimeout(() => { setLoading(true); request().then((page) => { setRecords(page.records); setTotal(page.total); setNextOffset(page.nextOffset); }).catch(() => { setRecords([]); setTotal(0); }).finally(() => setLoading(false)); }, 180); return () => window.clearTimeout(timer); }, [request]);
   const more = useCallback(() => { if (nextOffset === null || loading) return; request(nextOffset).then((page) => { setRecords((current) => [...current, ...page.records]); setNextOffset(page.nextOffset); }); }, [nextOffset, loading, request]);
   useEffect(() => { const target = sentinel.current; if (!target) return; const observer = new IntersectionObserver(([entry]) => { if (entry?.isIntersecting) more(); }, { rootMargin: "500px" }); observer.observe(target); return () => observer.disconnect(); }, [more]);
   return <section className="py-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="font-mono text-[10px] tracking-[0.18em] text-cyan-200">CONFIRMED PLANETS</p><h2 className="mt-2 text-2xl font-medium">Find a world, then follow the evidence.</h2></div><p className="font-mono text-xs text-slate-500">{loading ? "LOADING" : `${total.toLocaleString()} RECORDS`} / {records.length.toLocaleString()} LOADED</p></div><div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-3"><input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071018] px-4 py-4 text-sm outline-none placeholder:text-slate-600 focus:border-cyan-200/60" placeholder="Search a planet, host star, or discovery method" /><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2"><select value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="rounded-lg border border-white/10 bg-[#101b28] px-3 py-2 text-sm text-slate-200"><option value="name">Sort: name</option><option value="distance">Sort: distance</option><option value="discovery">Sort: discovery date</option><option value="radius">Sort: radius</option><option value="temperature">Sort: temperature</option></select><button type="button" className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 opacity-70">Advanced search <span className="font-mono text-[10px]">SOON</span></button></div><div className="flex rounded-lg border border-white/10 p-1 text-xs"><button onClick={() => setView("cards")} className={`rounded px-3 py-2 ${view === "cards" ? "bg-cyan-200 text-slate-950" : "text-slate-400"}`}>Cards</button><button onClick={() => setView("table")} className={`rounded px-3 py-2 ${view === "table" ? "bg-cyan-200 text-slate-950" : "text-slate-400"}`}>Table</button></div></div></div>
-  {view === "cards" ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{records.map((planet) => <PlanetCard key={planet.name} planet={planet} select={() => setSelected(planet)} />)}</div> : <PlanetTable records={records} select={setSelected} />}
-  <div ref={sentinel} className="grid h-24 place-items-center font-mono text-xs text-slate-500">{nextOffset === null && records.length > 0 ? "END OF CATALOGUE" : "LOADING MORE RECORDS"}</div>{selected && <PlanetSheet planet={selected} close={() => setSelected(null)} />}</section>;
+  {view === "cards" ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{records.map((planet) => <PlanetCard key={planet.name} planet={planet} select={() => navigate(`/atlas/planet/${encodeURIComponent(planet.name)}`)} />)}</div> : <PlanetTable records={records} select={(planet) => navigate(`/atlas/planet/${encodeURIComponent(planet.name)}`)} />}
+  <div ref={sentinel} className="grid h-24 place-items-center font-mono text-xs text-slate-500">{nextOffset === null && records.length > 0 ? "END OF CATALOGUE" : "LOADING MORE RECORDS"}</div></section>;
+}
+
+function ProfileRoute({ name, navigate }: { name: string; navigate: Navigate }) {
+  const [planet, setPlanet] = useState<Planet | null>(null);
+  const [state, setState] = useState<"loading" | "error" | "ready">("loading");
+  useEffect(() => {
+    setState("loading");
+    fetch(`/api/planets?${new URLSearchParams({ query: name, sort: "name", limit: "30", offset: "0" })}`)
+      .then(async (response) => { if (!response.ok) throw new Error("Unable to load planet profile"); return response.json() as Promise<Page>; })
+      .then((page) => { const match = page.records.find((record) => record.name === name); if (!match) throw new Error("Planet not found"); setPlanet(match); setState("ready"); })
+      .catch(() => setState("error"));
+  }, [name]);
+  if (state === "loading") return <section className="grid min-h-96 place-items-center py-10"><p className="font-mono text-xs tracking-[0.16em] text-cyan-100">LOADING PLANET PROFILE</p></section>;
+  if (state === "error" || !planet) return <section className="py-10"><Eyebrow>PROFILE UNAVAILABLE</Eyebrow><h1 className="mt-3 text-3xl font-medium">We could not find that planet.</h1><p className="mt-3 text-slate-400">The requested catalogue record may have changed since this link was created.</p><button onClick={() => navigate("/atlas/catalogue")} className="mt-6 rounded-full border border-cyan-200/40 px-5 py-3 text-sm text-cyan-100">Return to catalogue</button></section>;
+  return <section className="py-10"><button onClick={() => navigate("/atlas/catalogue")} className="mb-6 font-mono text-xs text-cyan-100">← Back to catalogue</button><PlanetProfile planet={planet} /></section>;
 }
 
 function ExploreView({ setNotice }: { setNotice: (message: string) => void }) {
@@ -124,6 +145,10 @@ function ToolsView({ setNotice }: { setNotice: (message: string) => void }) {
 
 function PlanetCard({ planet, select }: { planet: Planet; select: () => void }) { return <button onClick={select} className="group rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/50 hover:bg-cyan-100/[0.06]"><div className="flex items-start justify-between gap-4"><span className="font-mono text-[10px] tracking-[0.12em] text-cyan-200">{planet.discovery_method ?? "METHOD UNKNOWN"}</span><span className="text-slate-500 transition group-hover:text-cyan-100">↗</span></div><h3 className="mt-8 text-lg font-medium">{planet.name}</h3><p className="mt-1 text-sm text-slate-500">{planet.host_star ?? "Host star not recorded"}</p><div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-4"><Metric label="Radius" value={display(planet.radius_earth, " R⊕")} /><Metric label="Distance" value={display(planet.distance_parsecs, " pc")} /></div></button>; }
 function PlanetTable({ records, select }: { records: Planet[]; select: (planet: Planet) => void }) { return <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10"><table className="w-full min-w-210 text-left text-sm"><thead className="bg-white/[0.035] font-mono text-[10px] tracking-[0.12em] text-slate-500"><tr><th className="p-4 font-normal">PLANET</th><th className="p-4 font-normal">HOST STAR</th><th className="p-4 font-normal">RADIUS</th><th className="p-4 font-normal">DISTANCE</th><th className="p-4 font-normal">METHOD</th></tr></thead><tbody>{records.map((planet) => <tr key={planet.name} onClick={() => select(planet)} className="cursor-pointer border-t border-white/8 transition hover:bg-cyan-100/[0.06]"><td className="p-4 font-medium">{planet.name}</td><td className="p-4 text-slate-400">{planet.host_star ?? "—"}</td><td className="p-4">{display(planet.radius_earth, " R⊕")}</td><td className="p-4">{display(planet.distance_parsecs, " pc")}</td><td className="p-4 text-slate-400">{planet.discovery_method ?? "—"}</td></tr>)}</tbody></table></div>; }
+function PlanetProfile({ planet }: { planet: Planet }) {
+  const keplerFamily = /^(Kepler|K2)-/i.test(planet.name);
+  return <article className="w-full rounded-3xl border border-cyan-100/30 bg-[#101b28] p-6 shadow-2xl"><Eyebrow>{keplerFamily ? "TARGET & MISSION CONTEXT / KEPLER-K2" : "PLANET PROFILE / CATALOGUE VIEW"}</Eyebrow><h1 className="mt-3 text-3xl font-medium">{planet.name}</h1><p className="mt-1 text-slate-400">Host star: {planet.host_star ?? "not recorded"}</p><div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ValueBlock label="Radius" value={display(planet.radius_earth, " R⊕")} /><ValueBlock label="Mass" value={display(planet.mass_earth, " M⊕")} /><ValueBlock label="Equilibrium" value={display(planet.equilibrium_temperature_kelvin, " K", 0)} /><ValueBlock label="Orbit" value={display(planet.orbital_period_days, " d")} /></div>{keplerFamily ? <MissionContext planet={planet} /> : <div className="mt-6 rounded-xl border border-cyan-100/15 bg-cyan-200/5 p-4"><p className="font-mono text-[10px] tracking-[0.14em] text-cyan-200">WHAT THIS MEANS</p><p className="mt-2 text-sm leading-6 text-slate-300">This is the first layer: catalogue values for orientation. A future detail view will add citations, uncertainties, source-specific measurements, and explicitly-labelled visualization constraints.</p></div>}</article>;
+}
 function PlanetSheet({ planet, close }: { planet: Planet; close: () => void }) {
   const keplerFamily = /^(Kepler|K2)-/i.test(planet.name);
   return <div className="fixed inset-0 z-30 overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm"><article className="mx-auto my-6 w-full max-w-3xl rounded-3xl border border-cyan-100/30 bg-[#101b28] p-6 shadow-2xl"><button onClick={close} className="float-right rounded-full border border-white/10 px-3 py-1 text-sm text-slate-400 hover:text-white">Close</button><Eyebrow>{keplerFamily ? "TARGET & MISSION CONTEXT / KEPLER-K2" : "PLANET PROFILE / CATALOGUE VIEW"}</Eyebrow><h2 className="mt-3 text-3xl font-medium">{planet.name}</h2><p className="mt-1 text-slate-400">Host star: {planet.host_star ?? "not recorded"}</p><div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ValueBlock label="Radius" value={display(planet.radius_earth, " R⊕")} /><ValueBlock label="Mass" value={display(planet.mass_earth, " M⊕")} /><ValueBlock label="Equilibrium" value={display(planet.equilibrium_temperature_kelvin, " K", 0)} /><ValueBlock label="Orbit" value={display(planet.orbital_period_days, " d")} /></div>{keplerFamily ? <MissionContext planet={planet} /> : <div className="mt-6 rounded-xl border border-cyan-100/15 bg-cyan-200/5 p-4"><p className="font-mono text-[10px] tracking-[0.14em] text-cyan-200">WHAT THIS MEANS</p><p className="mt-2 text-sm leading-6 text-slate-300">This is the first layer: catalogue values for orientation. A future detail view will add citations, uncertainties, source-specific measurements, and explicitly-labelled visualization constraints.</p></div>}</article></div>;

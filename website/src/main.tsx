@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { Atlas } from "./atlas";
 import "./styles.css";
@@ -32,18 +32,38 @@ function Landing({ openAuth }: { openAuth: (mode: "register" | "login") => void 
 
 function InfoCard({ label, title, text }: { label: string; title: string; text: string }) { return <article className="rounded-xl border border-white/10 bg-white/[.025] p-5"><p className="font-mono text-[.6rem] tracking-[.15em] text-cyan-200">{label}</p><h3 className="mt-6 text-lg font-medium text-slate-100">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{text}</p></article>; }
 
+const isWorkspacePath = (path: string) => path === "/atlas" || path.startsWith("/atlas/") || path === "/explore" || path === "/data-methods" || path === "/tools";
+
+function useBrowserPath() {
+  const [path, setPath] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const updatePath = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", updatePath);
+    return () => window.removeEventListener("popstate", updatePath);
+  }, []);
+  const navigate = useCallback((nextPath: string) => {
+    if (window.location.pathname === nextPath) return;
+    window.history.pushState({}, "", nextPath);
+    setPath(nextPath);
+  }, []);
+  return { path, navigate };
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [screen, setScreen] = useState<"landing" | "register" | "login">("landing");
+  const { path, navigate } = useBrowserPath();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => { api("/api/auth/me").then(({ user }) => setUser(user)).catch(() => setUser(null)); }, []);
-  const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); setError(""); try { const data = await api(`/api/auth/${screen}`, { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); setUser(data.user); } catch (reason) { setError(reason instanceof Error ? reason.message : "Something went wrong."); } finally { setSaving(false); } };
-  const logout = async () => { await api("/api/auth/logout", { method: "POST" }); setUser(null); setScreen("landing"); };
-  if (user) return <Atlas user={user} logout={logout} />;
-  if (screen === "landing") return <Landing openAuth={setScreen} />;
-  const registering = screen === "register";
-  return <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_80%_10%,#1c2d61_0%,transparent_40rem),#070b1a] p-6 text-slate-100"><section className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900/90 p-9 shadow-2xl"><button className="mb-6 font-mono text-xs text-teal-200" onClick={() => setScreen("landing")}>← Back</button><p className="font-mono text-[.68rem] tracking-[.17em] text-teal-200">THE PLANETARY ATLAS</p><h1 className="mt-3 text-4xl font-semibold tracking-tight">{registering ? "Start exploring." : "Welcome back."}</h1><p className="mt-3 text-sm leading-6 text-slate-400">{registering ? "Create your account. Your email address will be your user ID." : "Sign in to your research workspace."}</p><form className="mt-7 grid gap-4" onSubmit={submit}>{registering && <label className="grid gap-2 text-sm font-medium">Name<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="name" minLength={2} required /></label>}<label className="grid gap-2 text-sm font-medium">Email<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="email" type="email" required /></label><label className="grid gap-2 text-sm font-medium">Password<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="password" type="password" minLength={8} required /></label>{error && <p className="rounded-lg bg-rose-950 p-3 text-sm text-rose-200">{error}</p>}<button disabled={saving} className="rounded-lg bg-teal-200 p-3 font-semibold text-slate-950">{saving ? "Please wait…" : registering ? "Create account" : "Sign in"}</button></form><p className="mt-6 text-sm text-slate-400">{registering ? "Already have an account?" : "New here?"} <button className="text-teal-200 underline" onClick={() => setScreen(registering ? "login" : "register")}>{registering ? "Sign in" : "Create an account"}</button></p></section></main>;
+  useEffect(() => { if (user && !isWorkspacePath(path)) navigate("/atlas"); }, [path, navigate, user]);
+  const registering = path === "/join";
+  const authenticating = path === "/sign-in" || path === "/join" || isWorkspacePath(path);
+  const openAuth = (mode: "register" | "login") => navigate(mode === "register" ? "/join" : "/sign-in");
+  const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); setError(""); try { const data = await api(`/api/auth/${registering ? "register" : "login"}`, { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); setUser(data.user); if (!isWorkspacePath(path)) navigate("/atlas"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Something went wrong."); } finally { setSaving(false); } };
+  const logout = async () => { await api("/api/auth/logout", { method: "POST" }); setUser(null); navigate("/"); };
+  if (user) return <Atlas user={user} logout={logout} path={path} navigate={navigate} />;
+  if (!authenticating) return <Landing openAuth={openAuth} />;
+  return <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_80%_10%,#1c2d61_0%,transparent_40rem),#070b1a] p-6 text-slate-100"><section className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900/90 p-9 shadow-2xl"><button className="mb-6 font-mono text-xs text-teal-200" onClick={() => navigate("/")}>← Back</button><p className="font-mono text-[.68rem] tracking-[.17em] text-teal-200">THE PLANETARY ATLAS</p><h1 className="mt-3 text-4xl font-semibold tracking-tight">{registering ? "Start exploring." : "Welcome back."}</h1><p className="mt-3 text-sm leading-6 text-slate-400">{registering ? "Create your account. Your email address will be your user ID." : "Sign in to your research workspace."}</p>{isWorkspacePath(path) && <p className="mt-4 rounded-lg border border-cyan-200/20 bg-cyan-200/5 p-3 text-sm text-cyan-100">Sign in to continue to your requested workspace page.</p>}<form className="mt-7 grid gap-4" onSubmit={submit}>{registering && <label className="grid gap-2 text-sm font-medium">Name<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="name" minLength={2} required /></label>}<label className="grid gap-2 text-sm font-medium">Email<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="email" type="email" required /></label><label className="grid gap-2 text-sm font-medium">Password<input className="rounded-lg border border-slate-600 bg-slate-950 p-3 outline-none focus:border-teal-200" name="password" type="password" minLength={8} required /></label>{error && <p className="rounded-lg bg-rose-950 p-3 text-sm text-rose-200">{error}</p>}<button disabled={saving} className="rounded-lg bg-teal-200 p-3 font-semibold text-slate-950">{saving ? "Please wait…" : registering ? "Create account" : "Sign in"}</button></form><p className="mt-6 text-sm text-slate-400">{registering ? "Already have an account?" : "New here?"} <button className="text-teal-200 underline" onClick={() => openAuth(registering ? "login" : "register")}>{registering ? "Sign in" : "Create an account"}</button></p></section></main>;
 }
 
 const root = document.getElementById("root");
