@@ -19,9 +19,15 @@ The Planetary Atlas is currently developed by invitation. Pull requests are for 
 6. Run the relevant type checks, tests, and production build before requesting review.
 7. Open a pull request only when the issue's acceptance criteria are met. Explain the evidence, tests, migration impact, and any unresolved scientific uncertainty.
 
+## System orientation
+
+Read the [system map](docs/platform/system-map.md) before changing service boundaries, deployment, or storage. Use the [operations runbook](docs/platform/operations-runbook.md) for local routing, health, ingestion, backup, and recovery procedures.
+
 ## Data and scientific integrity
 
 Changes that affect catalogue values, source ingestion, visualisations, descriptions of habitability, or external scientific claims require a source and an explicit account of the assumptions made. When in doubt, label content as unknown or modelled rather than inferring certainty.
+
+Use [catalogue data methods](docs/data/data-methods.md) for the current source scope and freshness model. Visual work must follow the [scientific visualization contract](docs/science/scientific-visualization-contract.md).
 
 ## Security and sensitive reports
 
