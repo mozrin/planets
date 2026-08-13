@@ -8,7 +8,12 @@ A Node 24 monorepo for a scientist-first exoplanet research workspace.
 - `website/` — mobile-first React 19 website
 - `docs/design/` — English design documentation
 - `docs/mpd/` — multilingual documentation, copied into the website at build time
+- `docs/data/` — catalogue source, ingestion, and scientific-use documentation
+- `docs/platform/` — system map, operations runbook, and maintenance policy
+- `docs/science/` — rendering and visualization evidence standards
 - `docker/<service>/` — service-specific Dockerfiles
+
+Read the [system map](docs/platform/system-map.md) for service boundaries and the [operations runbook](docs/platform/operations-runbook.md) for the complete start, health, ingestion, backup, and recovery procedures.
 
 ## Production deployment
 
@@ -69,3 +74,7 @@ npm run build
 ## Collaboration
 
 Pull requests are for approved collaborators only. Read [CONTRIBUTING.md](CONTRIBUTING.md) before beginning work.
+
+## Scientific methods and visualisation
+
+The local catalogue's source choice, snapshot safeguards, freshness, and interpretation limits are documented in [catalogue data methods](docs/data/data-methods.md). Planet appearance work must follow the [planet rendering specifications](docs/science/planet-rendering-specifications.md) and [scientific visualization contract](docs/science/scientific-visualization-contract.md).
