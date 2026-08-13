@@ -1,16 +1,17 @@
-import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
+import { authenticateUser, AuthenticationError, registerUser } from "./auth/authentication-service.ts";
+import { createSession, destroySession, requestCookies, sessionCookie, sessionUser } from "./auth/session-service.ts";
+import type { AuthBody, User } from "./auth/types.ts";
 import { runtime } from "./config/runtime.ts";
 import { database } from "./database/database.ts";
 import { initialiseDatabase } from "./database/schema.ts";
 import { sendJson, sendJsonError } from "./http/json-response.ts";
 import { readJsonBody } from "./http/read-json-body.ts";
 import { createRouter } from "./http/router.ts";
+import type { RouteContext } from "./http/router.ts";
 
 const port = runtime.port;
-type User = { email: string; name: string };
-type AuthBody = { name?: unknown; email?: unknown; password?: unknown };
 type NasaPlanet = {
   pl_name: string;
   hostname: string | null;
@@ -146,41 +147,6 @@ const synchronisePlanetsIfStale = async () => {
     await synchronisePlanets();
 };
 
-const normalizeEmail = (value: unknown) =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase();
-const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const passwordHash = (password: string, salt: string) =>
-  pbkdf2Sync(password, salt, 310_000, 32, "sha256").toString("hex");
-const requestCookies = (request: IncomingMessage): Record<string, string> =>
-  Object.fromEntries(
-    (request.headers.cookie ?? "")
-      .split(";")
-      .map((part) => part.trim().split("=").map(decodeURIComponent))
-      .filter(([key]) => key),
-  );
-const sessionCookie = (id: string, maxAge = 60 * 60 * 24 * 7) =>
-  [
-    `session=${encodeURIComponent(id)}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${maxAge}`,
-    ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
-  ].join("; ");
-
-const sessionUser = (request: IncomingMessage): User | null => {
-  const sessionId = requestCookies(request).session;
-  if (!sessionId) return null;
-  const row = database
-    .prepare(
-      `SELECT users.email, users.name FROM sessions JOIN users ON users.email = sessions.user_email WHERE sessions.id = ? AND sessions.expires_at > ?`,
-    )
-    .get(sessionId, Date.now());
-  return row as User | null;
-};
-
 const sendUser = (response: ServerResponse, user: User, sessionId: string) => {
   response.setHeader("set-cookie", sessionCookie(sessionId));
   sendJson(response, 201, { user });
@@ -255,13 +221,13 @@ const router = createRouter([
   {
     method: "GET",
     pathname: "/api/auth/me",
-    handle: ({ request, response }) => sendJson(response, 200, { user: sessionUser(request) }),
+    handle: ({ request, response }) => sendJson(response, 200, { user: sessionUser(database, request) }),
   },
   {
     method: "GET",
     pathname: "/api/planets",
     handle: ({ request, response, url }) => {
-      if (!sessionUser(request))
+      if (!sessionUser(database, request))
         return sendJsonError(response, 401, "Sign in to access The Planetary Atlas.");
       sendJson(response, 200, planetPage(url));
     },
@@ -271,8 +237,7 @@ const router = createRouter([
     pathname: "/api/auth/logout",
     handle: ({ request, response }) => {
       const sessionId = requestCookies(request).session;
-      if (sessionId)
-        database.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+      destroySession(database, sessionId);
       response.setHeader("set-cookie", sessionCookie("", 0));
       sendJson(response, 200, { ok: true });
     },
@@ -280,66 +245,14 @@ const router = createRouter([
   ...["/api/auth/register", "/api/auth/login"].map((pathname) => ({
     method: "POST",
     pathname,
-    handle: async ({ request, response }: { request: IncomingMessage; response: ServerResponse }) => {
+    handle: async ({ request, response }: RouteContext) => {
       try {
         const body = await readJsonBody<AuthBody>(request);
-        const email = normalizeEmail(body.email);
-        const password = String(body.password ?? "");
-        if (!validEmail(email) || password.length < 8)
-          return sendJsonError(response, 400, "Enter a valid email and a password of at least 8 characters.");
-
-        let user: User;
-        if (pathname.endsWith("/register")) {
-          const name = String(body.name ?? "").trim();
-          if (name.length < 2 || name.length > 80)
-            return sendJsonError(response, 400, "Enter your name (2–80 characters).");
-          if (
-            database
-              .prepare("SELECT email FROM users WHERE email = ?")
-              .get(email)
-          )
-            return sendJsonError(response, 409, "An account already exists for that email. Please sign in.");
-          const salt = randomBytes(16).toString("hex");
-          database
-            .prepare(
-              "INSERT INTO users (email, name, password_hash, password_salt) VALUES (?, ?, ?, ?)",
-            )
-            .run(email, name, passwordHash(password, salt), salt);
-          user = { email, name };
-        } else {
-          const record = database
-            .prepare(
-              "SELECT email, name, password_hash, password_salt FROM users WHERE email = ?",
-            )
-            .get(email) as
-            | (User & { password_hash: string; password_salt: string })
-            | undefined;
-          if (!record)
-            return sendJsonError(response, 401, "Email or password is incorrect.");
-          const expected = Buffer.from(record.password_hash, "hex");
-          const actual = Buffer.from(
-            passwordHash(password, record.password_salt),
-            "hex",
-          );
-          if (
-            expected.length !== actual.length ||
-            !timingSafeEqual(expected, actual)
-          )
-            return sendJsonError(response, 401, "Email or password is incorrect.");
-          user = { email: record.email, name: record.name };
-        }
-
-        database
-          .prepare("DELETE FROM sessions WHERE expires_at <= ?")
-          .run(Date.now());
-        const sessionId = randomBytes(32).toString("base64url");
-        database
-          .prepare(
-            "INSERT INTO sessions (id, user_email, expires_at) VALUES (?, ?, ?)",
-          )
-          .run(sessionId, user.email, Date.now() + runtime.sessionDurationMilliseconds);
+        const user = pathname.endsWith("/register") ? registerUser(database, body) : authenticateUser(database, body);
+        const sessionId = createSession(database, user.email, runtime.sessionDurationMilliseconds);
         return sendUser(response, user, sessionId);
       } catch (error) {
+        if (error instanceof AuthenticationError) return sendJsonError(response, error.status, error.message);
         return sendJsonError(response, 400, error instanceof Error ? error.message : "Could not process that request.");
       }
     },
