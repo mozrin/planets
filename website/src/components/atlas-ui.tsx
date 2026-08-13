@@ -23,3 +23,7 @@ export function DataValue({ label, value }: { label: string; value: string }) {
 export function SecondaryAction({ className = "", ...props }: ComponentProps<"button">) {
   return <button className={`rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-200/50 hover:text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-200 ${className}`} {...props} />;
 }
+
+export function PlannedAction({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <button type="button" disabled aria-disabled="true" className={`cursor-not-allowed rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-500 ${className}`}>{children}<span className="ml-2 font-mono text-[10px] tracking-[0.12em]">PLANNED</span></button>;
+}
