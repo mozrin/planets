@@ -4,6 +4,8 @@ website/public/docs/
 .env
 .DS_Store
 server/data/
+data/
+backups/
 
 **/node_modules
 **/dist

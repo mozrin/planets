@@ -37,6 +37,14 @@ docker compose up --build
 
 Visit `https://mozrin-planets.mozrin.com`; the API is at `https://mozrin-planets.mozrin.com/api/health`. The local Cloudflared tunnel requires its local-development token in `.env` and forwards to Traefik.
 
+## Operational health
+
+- `/api/health/live` confirms the process can answer requests.
+- `/api/health/ready` returns `200` only when the catalogue has synced successfully within two daily sync intervals; otherwise it returns `503` with sync age and error context.
+- `/api/health` retains the compact compatibility status endpoint.
+
+Server logs are JSON events suitable for container log collection. Investigate `catalogue.sync.failed` immediately; the catalogue remains on its last healthy data, and readiness becomes stale after 48 hours. Development monitoring can poll `/api/health/ready`; production alert routing belongs with the future deployment/monitoring configuration.
+
 ## Development conventions
 
 - Run dependency commands from the repository root. This is an npm workspace monorepo, so `node_modules` belongs only at the root.
