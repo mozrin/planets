@@ -1,6 +1,7 @@
 node_modules/
 dist/
 website/public/docs/
+website/public/mpd/
 .env
 .DS_Store
 server/data/

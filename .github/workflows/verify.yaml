@@ -20,3 +20,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: docker build --file docker/server/server.Dockerfile .
+      - run: docker build --file docker/website/website.Dockerfile .
