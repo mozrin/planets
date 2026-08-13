@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { Atlas } from "./atlas";
+import { SectionLabel, Surface } from "./components/atlas-ui";
 import "./styles.css";
 
 type User = { email: string; name: string };
@@ -30,7 +31,7 @@ function Landing({ openAuth }: { openAuth: (mode: "register" | "login") => void 
     </main></div>;
 }
 
-function InfoCard({ label, title, text }: { label: string; title: string; text: string }) { return <article className="rounded-xl border border-white/10 bg-white/[.025] p-5"><p className="font-mono text-[.6rem] tracking-[.15em] text-cyan-200">{label}</p><h3 className="mt-6 text-lg font-medium text-slate-100">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{text}</p></article>; }
+function InfoCard({ label, title, text }: { label: string; title: string; text: string }) { return <Surface className="rounded-xl p-5"><SectionLabel className="text-[.6rem] tracking-[.15em]">{label}</SectionLabel><h3 className="mt-6 text-lg font-medium text-slate-100">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{text}</p></Surface>; }
 
 const isWorkspacePath = (path: string) => path === "/atlas" || path.startsWith("/atlas/") || path === "/explore" || path === "/data-methods" || path === "/tools";
 
