@@ -3,3 +3,9 @@ dist/
 website/public/docs/
 .env
 .DS_Store
+server/data/
+
+**/node_modules
+**/dist
+**/git-diff.txt
+**/dump_files*txt

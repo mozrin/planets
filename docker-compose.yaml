@@ -8,6 +8,8 @@ services:
       dockerfile: docker/server/server.Dockerfile
       target: production
     restart: unless-stopped
+    volumes:
+      - server_data:/app/server/data
     networks:
       - appnet
 
@@ -41,3 +43,5 @@ networks:
   appnet:
     # Private to this Compose project. Do not set `internal: true`: the tunnel
     # needs outbound connectivity to Cloudflare.
+volumes:
+  server_data:

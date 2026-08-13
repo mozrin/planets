@@ -3,9 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
     "build": "node -e \"console.log('Server requires no build step.')\""
   },
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  }
 }

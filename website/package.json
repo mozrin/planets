@@ -5,17 +5,23 @@
   "scripts": {
     "predev": "npm run copy:docs",
     "prebuild": "npm run copy:docs",
-    "copy:docs": "node scripts/copy-docs.js",
+    "copy:docs": "node scripts/copy-docs.ts",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "vite": "latest"
   },
-  "devDependencies": {},
-  "engines": { "node": ">=24" }
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
 }
