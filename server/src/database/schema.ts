@@ -10,6 +10,12 @@ const migrations = [
   CREATE INDEX IF NOT EXISTS planets_discovery_method ON planets(discovery_method);
   CREATE TABLE IF NOT EXISTS sync_status (dataset TEXT PRIMARY KEY, completed_at INTEGER, record_count INTEGER NOT NULL DEFAULT 0, source_url TEXT NOT NULL, last_error TEXT);
 `,
+  `
+  CREATE INDEX IF NOT EXISTS planets_distance ON planets(distance_parsecs);
+  CREATE INDEX IF NOT EXISTS planets_radius ON planets(radius_earth);
+  CREATE INDEX IF NOT EXISTS planets_discovery_year ON planets(discovery_year);
+  CREATE INDEX IF NOT EXISTS planets_equilibrium_temperature ON planets(equilibrium_temperature_kelvin);
+`,
 ];
 
 export function initialiseDatabase() {
