@@ -22,7 +22,7 @@ The server requests these fields once per successful sync:
 | `discovery_method`, `discovery_year` | `disc_method`, `disc_year` | Discovery provenance. |
 | `star_temperature_kelvin`, `star_radius_solar`, `star_mass_solar`, `star_luminosity_log` | `st_teff`, `st_rad`, `st_mass`, `st_lum` | Host-star context. |
 
-Each successful daily sync records its retrieval timestamp, query URL, row count, and requested field definitions in `sync_runs`; the record itself also carries `source` and `synced_at`. SQL `NULL` means NASA did not supply a local value. The Atlas does not silently estimate missing values.
+Each successful daily sync records its retrieval timestamp, query URL, row count, and requested field definitions in `sync_runs`; the record itself also carries `source` and `synced_at`. The source registry and append-only field-value ledger preserve product metadata and each source-specific value across refreshes. See [the field-level provenance model](provenance-model.md). SQL `NULL` means NASA did not supply a local value. The Atlas does not silently estimate missing values.
 
 ## Promotion safeguards
 
