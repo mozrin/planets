@@ -17,6 +17,10 @@ const migrations = [
   CREATE INDEX IF NOT EXISTS planets_equilibrium_temperature ON planets(equilibrium_temperature_kelvin);
 `,
   `CREATE TABLE IF NOT EXISTS sync_runs (id INTEGER PRIMARY KEY, dataset TEXT NOT NULL, retrieved_at TEXT NOT NULL, record_count INTEGER NOT NULL, source_url TEXT NOT NULL, field_definitions TEXT NOT NULL);`,
+  `CREATE TABLE IF NOT EXISTS sources (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, product TEXT NOT NULL, citation TEXT NOT NULL, license TEXT NOT NULL, credit TEXT NOT NULL, url TEXT NOT NULL);
+   CREATE TABLE IF NOT EXISTS source_fields (source_id INTEGER NOT NULL REFERENCES sources(id), field_name TEXT NOT NULL, source_field TEXT NOT NULL, unit TEXT, null_semantics TEXT NOT NULL, uncertainty TEXT NOT NULL, derivation TEXT NOT NULL, PRIMARY KEY(source_id, field_name));
+   CREATE TABLE IF NOT EXISTS planet_field_values (id INTEGER PRIMARY KEY, planet_name TEXT NOT NULL, source_id INTEGER NOT NULL REFERENCES sources(id), field_name TEXT NOT NULL, source_field TEXT NOT NULL, numeric_value REAL, text_value TEXT, unit TEXT, null_semantics TEXT NOT NULL, uncertainty TEXT NOT NULL, derivation TEXT NOT NULL, retrieved_at TEXT NOT NULL);
+   CREATE INDEX IF NOT EXISTS planet_field_values_lookup ON planet_field_values(planet_name, retrieved_at DESC, source_id, field_name);`,
 ];
 
 export function initialiseDatabase() {
