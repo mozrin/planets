@@ -1,6 +1,8 @@
 node_modules/
 dist/
 website/public/docs/
+playwright-report/
+test-results/
 website/public/mpd/
 .env
 .DS_Store

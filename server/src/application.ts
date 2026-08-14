@@ -90,8 +90,10 @@ export function startApplication() {
   server.listen(runtime.port, "0.0.0.0", () => {
     log("server.started", { port: runtime.port });
     log("database.backup.completed", { path: createDatabaseBackup(runtime.backupDirectory) });
-    void refreshCatalogue();
+    if (runtime.nodeEnvironment !== "test") void refreshCatalogue();
   });
-  setInterval(() => void refreshCatalogue(), runtime.planetSyncIntervalMilliseconds).unref();
-  setInterval(() => log("database.backup.completed", { path: createDatabaseBackup(runtime.backupDirectory) }), runtime.planetSyncIntervalMilliseconds).unref();
+  if (runtime.nodeEnvironment !== "test") {
+    setInterval(() => void refreshCatalogue(), runtime.planetSyncIntervalMilliseconds).unref();
+    setInterval(() => log("database.backup.completed", { path: createDatabaseBackup(runtime.backupDirectory) }), runtime.planetSyncIntervalMilliseconds).unref();
+  }
 }
