@@ -14,11 +14,11 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "latest",
+    "@vitejs/plugin-react": "^6.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.3.3",
-    "vite": "latest"
+    "vite": "*"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
